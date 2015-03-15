@@ -1,0 +1,141 @@
+---
+title: "peer_assignment1"
+output: html_document
+---
+
+This is an R Markdown document. Is the first peer reviewed assignment in the "Reproducible Data". 
+Assignment Instructions can be found at:
+
+https://class.coursera.org/repdata-012/human_grading/view/courses/973513/assessments/3/submissions
+
+<!--- set the working directory and the load the data --->
+<!---setwd("/Users/craiganthony/git/RepData_PeerAssessment1")--->
+
+Load the data..
+
+```{r data_load}
+setwd("/Users/craiganthony/git/RepData_PeerAssessment1")
+data_in <- read.csv("activity.csv")
+activity_data <- na.omit(data_in)
+```
+Calculate
+
+<!---calulate number of steps per day, average number of steps per day, and the median number of steps per day
+mean_daily_steps <- aggregate(activity_data["steps"],by=activity_data[c("date")],FUN=mean,rm.na=TRUE)
+median_daily_steps <- aggregate(activity_data["steps"],by=activity_data[c("date")],FUN=median)-->
+
+```{r step_calcs}
+sum_daily_steps <- aggregate(activity_data["steps"],by=activity_data[c("date")],FUN=sum,rm.na=TRUE)
+mean_daily_steps <- mean(sum_daily_steps$steps,na.rm=TRUE)
+median_daily_steps <- median(sum_daily_steps$steps,na.rm=TRUE)
+```
+
+Here is the total number of steps taken per day.
+
+```{r}
+sum_daily_steps
+```
+
+Here is a Histogram of the total number of steps per day.
+
+```{r plot_step_hist}
+hist(sum_daily_steps$steps ,main="Frequency Histogram of the sum of daily steps",xlab="daily steps",breaks=20)
+```
+
+Here is the mean of the number of steps per day from the data frame mean_daily_steps.
+
+```{r show_daily_mean}
+mean_daily_steps
+```
+Here is the median of number of steps per day from the data frame median_daily_steps.
+
+```{r show_daily_median}
+median_daily_steps
+```
+<!--- calculate the mean number of steps per 5 minute interval averaged across all days -->
+
+Here is a line plot of the average number of steps per time interval averaged across all days
+
+```{r step_time_plot}
+mean_time_steps <- aggregate(activity_data["steps"],by=activity_data[c("interval")],FUN=mean)
+plot(mean_time_steps$interval,mean_time_steps$steps,type="l",xlab="interval (5 minutes)", ylab="number of steps",xaxp=c(1,2500,11),xaxt='n')
+axis(1, at=c(0,250,500,750,1000,1250,1500,1750,2000,2250,2500))
+```
+
+<!--- find the interval with the maximum number of steps --->
+
+```{r max_steps}
+max_step_interval <- subset(mean_time_steps,mean_time_steps$steps==max(mean_time_steps$steps))
+max_step_interval$interval
+```
+The interval with the average maximum steps per day for all days is the `r max_step_interval$interval` minute interval.
+
+<!--- Massage the data, first calculate the number of rows with missing data --->
+
+Find the number of rows with missing data.
+
+```{r sum_missing_rowdata}
+bad_row_cnt <- nrow(data_in[!complete.cases(data_in),])
+bad_row_cnt
+```
+There are `r bad_row_cnt` rows with missing data. Correct this by filling in the missing data with the average number of steps for that interval.
+
+<!--- Insert the mean number of steps per interval into the rows with missing step data for that interval and recalculate stats --->
+
+```{r recalculate}
+test <- complete.cases(data_in)
+for (i in 1:nrow(data_in)){
+    if(test[i] == "FALSE"){
+        for (i2 in 1:nrow(mean_time_steps))
+            if(data_in$interval[i]==mean_time_steps$interval[i2]){
+                data_in$steps[i] = mean_time_steps$steps[i2]
+            }
+     }
+}
+sum_daily_steps_new <- aggregate(data_in["steps"],by=data_in[c("date")],FUN=sum,rm.na=TRUE)
+mean_daily_steps_new <- mean(sum_daily_steps_new$steps,na.rm=TRUE)
+median_daily_steps_new <- median(sum_daily_steps_new$steps)
+```
+The recalulated mean number of steps per day is `r mean_daily_steps_new`
+
+The recalculated median number of steps per day is `r median_daily_steps_new`
+
+The recalculated data did not change from the original
+
+<!--- Plot histogram of new data --->
+
+Here is a histogram of the recalculated data. There was no change in the frequency of average steps.
+
+```{r revised_hist}
+hist(sum_daily_steps_new$steps ,main="Revised Frequency Histogram of the sum of daily steps",xlab="daily steps",breaks=20)
+```
+
+<!--- Day of week comparisons --->
+
+Do a weekday/weekend comparison. Create a new datafile. Each is represents interval/mean steps per interval/weekend or weekday. Do a panel plot comparing the weekend and weekday mean steps per interval.
+
+```{r dow_comparison}
+data_in$dow <- weekdays(as.Date(data_in$date))
+data_in$dow[data_in$dow == "Saturday"] <- "weekend"
+data_in$dow[data_in$dow == "Sunday"] <- "weekend"
+data_in$dow[data_in$dow != "weekend"] <- "weekday"
+
+dow_wday <- subset(data_in,data_in$dow=="weekday")
+dow_wend <- subset(data_in,data_in$dow=="weekend")
+
+mean_steps_weekday <- aggregate(dow_wday["steps"],by=dow_wday[c("interval")],FUN=mean)
+mean_steps_weekend <- aggregate(dow_wend["steps"],by=dow_wend[c("interval")],FUN=mean)
+
+mean_steps_weekend$dow <- "weekend"
+mean_steps_weekday$dow <- "weekday"
+mean_steps <- rbind(mean_steps_weekday,mean_steps_weekend)
+```
+Panel Plot.
+
+```{r dow_plot}
+library(lattice)
+attach(mean_steps)
+xyplot(steps~interval|dow,main="Weekday vs Weekend steps per interval",xlab="Interval",ylab="Number of Steps",type="l",layout=c(1,2))
+detach(mean_steps)
+```
+
